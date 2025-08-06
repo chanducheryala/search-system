@@ -46,6 +46,9 @@ public class LuceneConfig {
 
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
         config.setOpenMode(OpenMode.CREATE_OR_APPEND);
+        config.setUseCompoundFile(true);
+        config.setMaxBufferedDocs(10000);
+        config.setRAMBufferSizeMB(256.0);
         return new IndexWriter(directory, config);
     }
 }
