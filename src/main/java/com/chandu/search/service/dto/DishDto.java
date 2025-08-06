@@ -10,6 +10,6 @@ import lombok.*;
 @Setter
 @Builder
 public class DishDto {
-    private Long id;
     private String name;
+    private String category;
 }

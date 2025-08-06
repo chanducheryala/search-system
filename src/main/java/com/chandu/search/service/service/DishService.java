@@ -1,12 +1,13 @@
 package com.chandu.search.service.service;
 
 import com.chandu.search.service.dto.DishDto;
+import com.chandu.search.service.dto.SearchResultDto;
 import org.apache.lucene.queryparser.classic.ParseException;
 
 import java.io.IOException;
-import java.util.List;
+
 
 public interface DishService {
     DishDto add(DishDto dishDto) throws IOException;
-    List<String> search(String query) throws ParseException, IOException;
+    SearchResultDto search(String query) throws ParseException, IOException;
 }
