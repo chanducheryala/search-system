@@ -7,6 +7,6 @@ import java.io.IOException;
 import java.util.List;
 
 public interface DishService {
-    DishDto add(DishDto dish) throws IOException;
-    List<String> search(String queryString) throws ParseException, IOException;
+    DishDto add(DishDto dishDto) throws IOException;
+    List<String> search(String query) throws ParseException, IOException;
 }
