@@ -3,8 +3,6 @@ package com.chandu.search.service.service.impl;
 import com.chandu.search.service.dto.DishDto;
 import com.chandu.search.service.dto.SearchResultDto;
 import com.chandu.search.service.service.LuceneService;
-import com.fasterxml.jackson.databind.util.ArrayBuilders.BooleanBuilder;
-
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -18,13 +16,9 @@ import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
 import org.springframework.stereotype.Service;
+
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -38,8 +32,8 @@ public class LuceneServiceImpl implements LuceneService {
     private SearcherManager searcherManager;
 
     private static final String NAME_FIELD = "name";
-    private static final int MAX_SEARCH_RESULTS = 50;
     private static final String CATEGORY_FIELD = "category";
+    private static final int MAX_SEARCH_RESULTS = 50;
 
     @PostConstruct
     public void init() throws IOException {
@@ -56,7 +50,11 @@ public class LuceneServiceImpl implements LuceneService {
 
     @Override
     public void indexDish(DishDto dishDto) throws IOException {
-        if (dishDto == null || dishDto.getName() == null || dishDto.getName().isBlank()) return;
+        if (dishDto == null || StringUtils.isBlank(dishDto.getName())) {
+            log.warn("Skipping indexing due to missing name or null DishDto: {}", dishDto);
+            return;
+        }
+
         Document doc = createDocument(dishDto);
         indexWriter.addDocument(doc);
         indexWriter.commit();
@@ -76,25 +74,24 @@ public class LuceneServiceImpl implements LuceneService {
         return processResults(topDocs);
     }
 
-    private BooleanQuery.Builder buildQuery(String query) throws ParseException{
+    private BooleanQuery.Builder buildQuery(String query) throws ParseException {
         BooleanQuery.Builder finalQuery = new BooleanQuery.Builder();
-
         String escapedQuery = QueryParser.escape(query.toLowerCase().trim());
 
         Query nameQuery = buildFieldQuery(NAME_FIELD, escapedQuery, 2.0f);
         Query categoryQuery = buildFieldQuery(CATEGORY_FIELD, escapedQuery, 1.0f);
-        
+
         finalQuery.add(nameQuery, BooleanClause.Occur.SHOULD);
         finalQuery.add(categoryQuery, BooleanClause.Occur.SHOULD);
 
-        Query phraseQuery = new PhraseQuery.Builder().add(new Term(NAME_FIELD, escapedQuery), 0).build();       
-        Query boostedPrefixQuery = new BoostQuery(phraseQuery, 3.0f);
-        finalQuery.add(boostedPrefixQuery, BooleanClause.Occur.SHOULD);
+        PhraseQuery phraseQuery = new PhraseQuery.Builder().add(new Term(NAME_FIELD, escapedQuery), 0).build();
+        Query boostedPhrase = new BoostQuery(phraseQuery, 3.0f);
+        finalQuery.add(boostedPhrase, BooleanClause.Occur.SHOULD);
 
         return finalQuery;
     }
 
-    private Query buildFieldQuery(String field, String query, float boost) throws ParseException{
+    private Query buildFieldQuery(String field, String query, float boost) throws ParseException {
         BooleanQuery.Builder fieldQuery = new BooleanQuery.Builder();
 
         Term fuzzyTerm = new Term(field, query);
@@ -110,40 +107,41 @@ public class LuceneServiceImpl implements LuceneService {
 
         PrefixQuery prefixQuery = new PrefixQuery(new Term(field, query));
         Query boostedPrefixQuery = new BoostQuery(prefixQuery, 1.5f);
-
         fieldQuery.add(boostedPrefixQuery, BooleanClause.Occur.SHOULD);
 
         BooleanQuery queryWithBoost = fieldQuery.build();
-
         return new BoostQuery(queryWithBoost, boost);
     }
 
     private String preprocessQuery(String query) {
-        if(StringUtils.isEmpty(query)) {
+        if (StringUtils.isEmpty(query)) {
             return "";
         }
-        
+
         String normalized = query.trim().replaceAll("\\s+", " ").toLowerCase();
         String processed = normalized.replaceAll("[^\\p{L}\\p{N}\\s'-]", "");
 
         Map<String, String> replacements = Map.of(
-            "&", "and",
-            "vs", "versus",
-            "w/", "with",
-            "w/o", "without"
+                "&", "and",
+                "vs", "versus",
+                "w/", "with",
+                "w/o", "without"
         );
-        
+
         for (Map.Entry<String, String> entry : replacements.entrySet()) {
             processed = processed.replace(entry.getKey(), entry.getValue());
         }
+
         Set<String> stopWords = Set.of("a", "an", "the", "and", "or", "in", "on", "at");
         processed = Arrays.stream(processed.split("\\s+"))
-                     .filter(word -> !stopWords.contains(word))
-                     .collect(Collectors.joining(" "));
+                .filter(word -> !stopWords.contains(word))
+                .collect(Collectors.joining(" "));
+
         if (processed.endsWith("s") && processed.length() > 3) {
             processed = processed.substring(0, processed.length() - 1) + "?";
         }
-        return query;
+
+        return processed;
     }
 
     private TopDocs executeSearch(Query query) throws IOException {
@@ -173,13 +171,12 @@ public class LuceneServiceImpl implements LuceneService {
         } finally {
             searcherManager.release(searcher);
         }
-   
     }
 
     private Document createDocument(DishDto dishDto) {
         Document doc = new Document();
         doc.add(new TextField(NAME_FIELD, dishDto.getName(), Field.Store.YES));
-        doc.add(new TextField(CATEGORY_FIELD, dishDto.getCategory(), Field.Store.YES));
+        doc.add(new StringField(CATEGORY_FIELD, dishDto.getCategory(), Field.Store.YES));
         return doc;
     }
 }
