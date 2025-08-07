@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple
 
 # Configuration
-BASE_URL = "http://localhost:8080/api/v1/dishes"  # Update this if needed
-NUM_DISHES = 30000  # Total number of dishes to add
+BASE_URL = "https://search-system-jced.onrender.com/api/v1/dishes"  # Update this if needed
+NUM_DISHES = 200  # Total number of dishes to add
 MAX_WORKERS = 10  # Concurrency
 
 # Sample data

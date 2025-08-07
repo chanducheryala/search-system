@@ -96,7 +96,7 @@
       controller = new AbortController();
   
       try {
-        const res = await fetch(`http://localhost:8080/api/v1/dishes?query=${encodeURIComponent(query)}`, {
+        const res = await fetch(`https://search-system-jced.onrender.com/api/v1/dishes?query=${encodeURIComponent(query)}`, {
           signal: controller.signal
         });
   
